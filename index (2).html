@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Study Tracker</title>
+<style>
+body{font-family:Arial;padding:20px}
+.hidden{display:none}
+button{margin:3px}
+.task{border:1px solid #000;padding:10px;margin:10px 0}
+.complete{background:#9dff9d}
+.pending{background:#fff29d}
+.deny{background:#ff9d9d}
+textarea{width:100%;height:60px;margin-top:5px}
+.box{border:2px solid black;padding:10px;margin:10px 0}
+.subDash{margin:5px 0;padding:5px;border:1px dashed #000}
+</style>
+</head>
+
+<body>
+
+<div id="loginBox">
+<h2>Login</h2>
+<input id="username" placeholder="Name">
+<button onclick="login()">Login</button>
+</div>
+
+<div id="appBox" class="hidden">
+
+<h2 id="welcome"></h2>
+
+<div class="box">
+<b>Dashboard (Subject-wise)</b>
+<div id="dash"></div>
+</div>
+
+<button onclick="openSub('Accounts')">Accounts</button>
+<button onclick="openSub('Economics')">Economics</button>
+<button onclick="openSub('Law')">Law</button>
+<button onclick="openSub('Maths')">Maths</button>
+
+<h3 id="sub"></h3>
+
+<input id="chapterInput" placeholder="Enter chapter">
+<button onclick="addChapter()">Enter</button>
+
+<div id="taskList"></div>
+
+<br>
+<button onclick="exitApp()">Exit</button>
+
+</div>
+
+<script>
+let user=localStorage.getItem("user");
+let data=JSON.parse(localStorage.getItem("data"))||{};
+let subject="";
+let trash=null;
+
+if(user) showApp();
+
+function login(){
+ let n=username.value.trim();
+ if(n==="") return;
+ user=n;
+ if(!data[n]) data[n]={};
+ localStorage.setItem("user",n);
+ save();
+ showApp();
+}
+
+function showApp(){
+ loginBox.classList.add("hidden");
+ appBox.classList.remove("hidden");
+ welcome.innerText="Welcome "+user;
+ updateDash();
+}
+
+function openSub(s){
+ subject=s;
+ sub.innerText=s;
+ if(!data[user][s]) data[user][s]=[];
+ render();
+}
+
+function addChapter(){
+ if(subject===""||chapterInput.value==="") return;
+ data[user][subject].push({
+  text:chapterInput.value,
+  status:"pending",
+  note:"",
+  revision:0
+ });
+ chapterInput.value="";
+ save();
+ render();
+}
+
+function render(){
+ taskList.innerHTML="";
+ data[user][subject].forEach((t,i)=>{
+  let d=document.createElement("div");
+  d.className="task "+t.status;
+
+  d.innerHTML="<b>"+t.text+"</b><br>";
+
+  d.append(btn("Complete",()=>setStatus(i,"complete")));
+  d.append(btn("Pending",()=>setStatus(i,"pending")));
+  d.append(btn("Deny",()=>setStatus(i,"deny")));
+  d.append(btn("Delete",()=>deleteTask(i)));
+
+  if(t.status==="pending"){
+    let ta=document.createElement("textarea");
+    ta.placeholder="Why pending?";
+    ta.value=t.note;
+    ta.oninput=()=>{t.note=ta.value;save();};
+    d.appendChild(ta);
+  }
+
+  let r=document.createElement("div");
+  r.innerHTML="Revision: "+t.revision+" ";
+  r.append(btn("+",()=>{t.revision++;save();render();}));
+  r.append(btn("-",()=>{if(t.revision>0)t.revision--;save();render();}));
+  if(t.revision>=10){
+    r.innerHTML+=" 🏆 SUCCESS";
+    d.style.background="#9dff9d";
+  }
+  d.appendChild(r);
+
+  taskList.appendChild(d);
+ });
+ updateDash();
+}
+
+function deleteTask(i){
+ trash={subject:subject,item:data[user][subject][i]};
+ data[user][subject].splice(i,1);
+ save();
+ render();
+ setTimeout(()=>{
+  if(confirm("Undo delete?")){
+    data[user][trash.subject].push(trash.item);
+    save(); render();
+  }
+  trash=null;
+ },100);
+}
+
+function updateDash(){
+ dash.innerHTML="";
+ Object.keys(data[user]||{}).forEach(s=>{
+  let T=0,C=0,P=0,D=0,S=0;
+  data[user][s].forEach(t=>{
+    T++;
+    if(t.status==="complete")C++;
+    if(t.status==="pending")P++;
+    if(t.status==="deny")D++;
+    if(t.revision>=10)S++;
+  });
+  let div=document.createElement("div");
+  div.className="subDash";
+  div.innerHTML=
+   "<b>"+s+"</b> | Total:"+T+
+   " | Complete:"+C+
+   " | Pending:"+P+
+   " | Deny:"+D+
+   " | Success:"+S;
+  dash.appendChild(div);
+ });
+}
+
+function btn(t,f){
+ let b=document.createElement("button");
+ b.innerText=t;
+ b.onclick=f;
+ return b;
+}
+function setStatus(i,s){
+ data[user][subject][i].status=s;
+ save(); render();
+}
+function save(){
+ localStorage.setItem("data",JSON.stringify(data));
+}
+function exitApp(){
+ localStorage.removeItem("user");
+ location.reload();
+}
+</script>
+
+</body>
+</html>
